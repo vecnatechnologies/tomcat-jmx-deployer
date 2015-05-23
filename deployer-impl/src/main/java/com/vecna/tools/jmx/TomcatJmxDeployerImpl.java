@@ -40,23 +40,17 @@ import com.sun.tools.attach.VirtualMachineDescriptor;
  *
  * @author ogolberg@vecna.com
  */
-public class TomcatJmxDeployer {
+public class TomcatJmxDeployerImpl implements TomcatJmxDeployer {
   private static final String CONNECTOR_PROP = "com.sun.management.jmxremote.localConnectorAddress";
   private static final String TOMCAT_CLASS = "org.apache.catalina.startup.Bootstrap";
   private static final String WEBAPP_MBEAN = "Catalina:j2eeType=WebModule,name=//%s/%s,J2EEApplication=none,J2EEServer=none";
   private static final String DEPLOYER_MBEAN = "Catalina:type=Deployer,host=localhost";
 
-  private String host = "localhost";
-  private String contextName;
-  private InputStream contextResource;
-  private String tomcatId;
   private int pollResolution = 250;
   private int timeout = 600000;
 
   private VirtualMachineDescriptor findTomcat() {
-    List<VirtualMachineDescriptor> descriptorList = VirtualMachine.list();
-
-    for (VirtualMachineDescriptor vmdesc : descriptorList) {
+    for (VirtualMachineDescriptor vmdesc : VirtualMachine.list()) {
       if (vmdesc.displayName().startsWith(TOMCAT_CLASS)) {
         return vmdesc;
       }
@@ -84,8 +78,8 @@ public class TomcatJmxDeployer {
     return address;
   }
 
-  private VirtualMachine attachToTomcatJvm() throws Exception {
-    String id = this.tomcatId;
+  private VirtualMachine attachToTomcatJvm(String tomcatId) throws Exception {
+    String id = tomcatId;
 
     if (id == null) {
       id = findTomcat().id();
@@ -94,8 +88,8 @@ public class TomcatJmxDeployer {
     return VirtualMachine.attach(id);
   }
 
-  private WebappStatusEnum waitTillDeployed(MBeanServerConnection connection) throws Exception {
-    final ObjectName mbean = new ObjectName(String.format(WEBAPP_MBEAN, this.host, this.contextName));
+  private WebappStatusEnum waitTillDeployed(MBeanServerConnection connection, String host, String contextName) throws Exception {
+    final ObjectName mbean = new ObjectName(String.format(WEBAPP_MBEAN, host, contextName));
 
     for (int i = 0; i < this.timeout / this.pollResolution; i++) {
 
@@ -119,14 +113,14 @@ public class TomcatJmxDeployer {
     return WebappStatusEnum.TIMED_OUT;
   }
 
-  private Path findContextDirectory(MBeanServerConnection connection) throws Exception {
-    String base = (String) connection.getAttribute(new ObjectName(String.format(DEPLOYER_MBEAN, this.host)), "configBaseName");
+  private Path findContextDirectory(MBeanServerConnection connection, String host) throws Exception {
+    String base = (String) connection.getAttribute(new ObjectName(String.format(DEPLOYER_MBEAN, host)), "configBaseName");
 
     return Paths.get(base);
   }
 
-  private void copyContextFile(Path path) throws Exception {
-    Files.copy(this.contextResource, path.resolve(this.contextName + ".xml"));
+  private void copyContextFile(Path path, InputStream contextResource, String contextName) throws Exception {
+    Files.copy(contextResource, path.resolve(contextName + ".xml"));
   }
 
   /**
@@ -134,8 +128,9 @@ public class TomcatJmxDeployer {
    * @return status of the application or timeout
    * @throws Exception as a result of various error conditions (TODO: needs cleanup)
    */
-  public WebappStatusEnum deploy() throws Exception {
-    final VirtualMachine vm = attachToTomcatJvm();
+  @Override
+  public WebappStatusEnum deploy(DeployCommand command) throws Exception {
+    final VirtualMachine vm = attachToTomcatJvm(command.getTomcatId());
 
     try {
       String address = getJmxAddress(vm);
@@ -145,49 +140,15 @@ public class TomcatJmxDeployer {
 
         final MBeanServerConnection connection = connector.getMBeanServerConnection();
 
-        copyContextFile(findContextDirectory(connection));
-        return waitTillDeployed(connection);
-      }
+        Path contextDirectory = command.getContextTarget() == null
+                ? findContextDirectory(connection, command.getHost())
+                : Paths.get(command.getContextTarget());
 
+        copyContextFile(contextDirectory, command.getContextResource(), command.getContextName());
+        return waitTillDeployed(connection, command.getHost(), command.getContextName());
+      }
     } finally {
       vm.detach();
     }
-
-  }
-
-  /**
-   * @param host Tomcat host (default = localhost)
-   * @return <code>this</code>
-   */
-  public TomcatJmxDeployer setHost(String host) {
-    this.host = host;
-    return this;
-  }
-
-  /**
-   * @param contextResource the stream to read context XML contents from
-   * @return <code>this</code>
-   */
-  public TomcatJmxDeployer setContextResource(InputStream contextResource) {
-    this.contextResource = contextResource;
-    return this;
-  }
-
-  /**
-   * @param contextName name of the webapp context (without /)
-   * @return <code>this</code>
-   */
-  public TomcatJmxDeployer setContextName(String contextName) {
-    this.contextName = contextName;
-    return this;
-  }
-
-  /**
-   * @param tomcatId Tomcat PID; if not specified, will attempt to find Tomcat among running JVM processes
-   * @return <code>this</code>
-   */
-  public TomcatJmxDeployer setTomcatId(String tomcatId) {
-    this.tomcatId = tomcatId;
-    return this;
   }
 }

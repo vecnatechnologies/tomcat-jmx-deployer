@@ -14,21 +14,26 @@
  * permissions and limitations under the License.
  */
 
-package com.vecna.tools.jmx;
+package com.vecna.tools.classloader;
+
+import junit.framework.TestCase;
 
 /**
- * Status of a webapp when it's finished deploying or we finished observing it.
+ * Tests for ClassLoaderBuilder.
  *
  * @author ogolberg@vecna.com
  */
-public enum WebappStatusEnum {
-  /** webapp started */
-  STARTED,
-  /** webapp failed to start */
-  FAILED,
-  /** webapp stopped */
-  STOPPED,
+public class ClassloaderBuilderTest extends TestCase {
+  /**
+   * Tests {@link ClassLoaderBuilder#addToolsJar()}
+   */
+  public void testAddToolsJar() {
+    ClassLoader loader = new ClassLoaderBuilder().addToolsJar().build();
 
-  /** we stopped observing the webapp because it's taking too long to deploy */
-  TIMED_OUT;
+    try {
+      loader.loadClass("com.sun.tools.attach.VirtualMachine");
+    } catch (ClassNotFoundException e) {
+      fail("class not found - tools.jar is not on the classpath");
+    }
+  }
 }

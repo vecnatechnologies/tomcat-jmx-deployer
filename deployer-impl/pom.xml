@@ -14,16 +14,11 @@ implied.  See the License for the specific language governing
 permissions and limitations under the License.  -->
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.vecna.tools</groupId>
-  <artifactId>tomcat-jmx-deployer-all</artifactId>
+  <artifactId>tomcat-jmx-deployer</artifactId>
   <version>1.0</version>
-  <packaging>pom</packaging>
-  <name>tomcat-jmx-deployer-all</name>
-  <description>Deploy to Tomcat through JMX without Manager</description>
-  <scm>
-    <connection>scm:git:git://github.com/vecnatechnologies/tomcat-jmx-deployer.git</connection>
-    <developerConnection>scm:git:git@github.com:vecnatechnologies/tomcat-jmx-deployer.git</developerConnection>
-    <url>https://github.com/vecnatechnologies/tomcat-jmx-deployer</url>
-  </scm>
+  <packaging>jar</packaging>
+  <name>tomcat-jmx-deployer</name>
+  <description>Programmatically deploy to Tomcat through JMX without Manager</description>
   <organization>
     <name>Vecna Technologies</name>
     <url>http://vecna.com</url>
@@ -48,11 +43,29 @@ permissions and limitations under the License.  -->
     <version>2.0</version>
     <relativePath />
   </parent>
-  <modules>
-    <module>deployer-api</module>
-    <module>deployer-impl</module>
-    <module>classpath-util</module>
-    <module>cli</module>
-    <module>maven</module>
-  </modules>
+
+  <properties>
+    <slf4j.version>1.7.7</slf4j.version>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.sun</groupId>
+      <artifactId>tools</artifactId>
+      <version>7</version>
+      <scope>system</scope>
+      <systemPath>${java.home}/../lib/tools.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>com.vecna.tools</groupId>
+      <artifactId>tomcat-jmx-deployer-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.10</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
 </project>
